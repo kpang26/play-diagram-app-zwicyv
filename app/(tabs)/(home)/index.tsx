@@ -5,6 +5,7 @@ import { ScrollView, Pressable, StyleSheet, View, Text, Platform } from "react-n
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors } from "@/styles/commonStyles";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AmericanFootballIcon from "@/components/AmericanFootballIcon";
 
 export default function HomeScreen() {
   const renderHeaderRight = () => (
@@ -32,7 +33,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <IconSymbol name="sportscourt.fill" size={80} color={colors.primary} />
+            <AmericanFootballIcon size={100} color="#FFFFFF" backgroundColor={colors.primary} />
             <Text style={styles.title}>Football Play Converter</Text>
             <Text style={styles.subtitle}>
               Transform hand-drawn plays into professional diagrams
