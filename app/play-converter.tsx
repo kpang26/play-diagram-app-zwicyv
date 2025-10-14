@@ -125,7 +125,7 @@ export default function PlayConverterScreen() {
       // In a real app, you would convert this to PDF
       // For now, we'll just save/share the PNG
       const fileName = `football-play-${Date.now()}.png`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
 
       await FileSystem.copyAsync({
         from: uri,

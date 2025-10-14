@@ -55,7 +55,7 @@ export default function FloatingTabBar({
     if (index !== -1) {
       activeIndex.value = withSpring(index);
     }
-  }, [pathname]);
+  }, [pathname, activeIndex, tabs]);
 
   const animatedStyle = useAnimatedStyle(() => {
     const tabWidth = containerWidth / tabs.length;
