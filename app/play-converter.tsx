@@ -15,6 +15,7 @@ import { Stack, router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system";
+import { cacheDirectory } from "expo-file-system";
 import { captureRef } from "react-native-view-shot";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors } from "@/styles/commonStyles";
@@ -125,7 +126,7 @@ export default function PlayConverterScreen() {
       // In a real app, you would convert this to PDF
       // For now, we'll just save/share the PNG
       const fileName = `football-play-${Date.now()}.png`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
+      const fileUri = `${cacheDirectory}${fileName}`;
 
       await FileSystem.copyAsync({
         from: uri,
