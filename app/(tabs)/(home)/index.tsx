@@ -1,11 +1,10 @@
 
 import React from "react";
 import { Stack, Link } from "expo-router";
-import { ScrollView, Pressable, StyleSheet, View, Text, Platform } from "react-native";
+import { ScrollView, Pressable, StyleSheet, View, Text, Platform, Image } from "react-native";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors } from "@/styles/commonStyles";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AmericanFootballIcon from "@/components/AmericanFootballIcon";
 
 export default function HomeScreen() {
   const renderHeaderRight = () => (
@@ -33,7 +32,13 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <AmericanFootballIcon size={100} color="#FFFFFF" backgroundColor={colors.primary} />
+            <View style={styles.logoContainer}>
+              <Image 
+                source={require('@/assets/images/db3fad7e-c183-419b-bbe4-5befcf56c7a9.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
             <Text style={styles.title}>Football Play Converter</Text>
             <Text style={styles.subtitle}>
               Transform hand-drawn plays into professional diagrams
@@ -113,6 +118,21 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
+  },
+  logoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
+    elevation: 4,
+  },
+  logo: {
+    width: 100,
+    height: 100,
   },
   title: {
     fontSize: 28,
