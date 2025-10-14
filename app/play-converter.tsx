@@ -20,11 +20,13 @@ import { captureRef } from "react-native-view-shot";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors } from "@/styles/commonStyles";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { supabaseConfig } from "@/config/supabase";
 
 export default function PlayConverterScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [convertedImage, setConvertedImage] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
+  const [conversionProgress, setConversionProgress] = useState<string>('');
   const diagramRef = React.useRef<View>(null);
 
   const pickImage = async () => {
@@ -92,20 +94,111 @@ export default function PlayConverterScreen() {
       return;
     }
 
-    setIsConverting(true);
-    console.log('Starting conversion...');
-
-    // Simulate conversion process (2 seconds)
-    // In a real app, this would call an AI service or backend API
-    setTimeout(() => {
+    // Check if Supabase is configured
+    if (!supabaseConfig.isConfigured()) {
+      setIsConverting(true);
+      setConversionProgress('Demo mode - simulating conversion...');
+      
+      // Simulate AI processing in demo mode
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       setConvertedImage(selectedImage);
       setIsConverting(false);
-      console.log('Conversion complete');
+      setConversionProgress('');
+      
+      Alert.alert(
+        'Demo Mode',
+        'To enable full AI conversion:\n\n' +
+        '1. Press the Supabase button to connect your project\n' +
+        '2. Deploy the convert-football-play edge function\n' +
+        '3. Add your OpenAI API key to Supabase secrets\n' +
+        '4. Add Supabase credentials to your .env file\n\n' +
+        'See AI_SETUP_GUIDE.md for detailed instructions.\n\n' +
+        'For now, showing your original image as a placeholder.'
+      );
+      return;
+    }
+
+    setIsConverting(true);
+    setConversionProgress('Preparing image...');
+    console.log('Starting AI conversion...');
+
+    try {
+      // Step 1: Read the image file and convert to base64
+      setConversionProgress('Reading image data...');
+      const base64Image = await FileSystem.readAsStringAsync(selectedImage, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      console.log('Image converted to base64');
+
+      // Step 2: Call the Supabase Edge Function
+      setConversionProgress('Analyzing play with AI...');
+      
+      const response = await fetch(
+        supabaseConfig.getEdgeFunctionUrl('convert-football-play'),
+        {
+          method: 'POST',
+          headers: supabaseConfig.getHeaders(),
+          body: JSON.stringify({
+            image: base64Image,
+            prompt: 'Convert this hand-drawn football play into a professional diagram with clear player positions, routes, and formations. Use standard football notation and symbols.',
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
+        
+        if (errorData.error === 'OpenAI API key not configured') {
+          throw new Error(
+            'OpenAI API key not configured in Supabase. Please add OPENAI_API_KEY to your Supabase secrets. See AI_SETUP_GUIDE.md for instructions.'
+          );
+        }
+        
+        throw new Error(errorData.error || 'Failed to convert play');
+      }
+
+      const data = await response.json();
+      console.log('Conversion successful');
+
+      // Step 3: Save the converted image
+      setConversionProgress('Finalizing diagram...');
+      
+      if (data.url) {
+        // If the API returns a URL, use it directly
+        setConvertedImage(data.url);
+      } else if (data.image) {
+        // If the API returns base64, save it locally
+        const fileName = `converted-play-${Date.now()}.png`;
+        const fileUri = `${cacheDirectory}${fileName}`;
+        
+        await FileSystem.writeAsStringAsync(fileUri, data.image, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        setConvertedImage(fileUri);
+      } else {
+        throw new Error('No image data received from API');
+      }
+
+      setIsConverting(false);
+      setConversionProgress('');
+      
       Alert.alert(
         'Conversion Complete!',
-        'Your play has been converted to a professional diagram. In a production app, this would use AI to analyze and redraw the play.'
+        'Your hand-drawn play has been converted to a professional diagram using AI.'
       );
-    }, 2000);
+    } catch (error: any) {
+      console.error('Conversion error:', error);
+      setIsConverting(false);
+      setConversionProgress('');
+      
+      Alert.alert(
+        'Conversion Failed',
+        error.message || 'Failed to convert play. Please check your connection and try again.'
+      );
+    }
   };
 
   const downloadPDF = async () => {
@@ -123,8 +216,6 @@ export default function PlayConverterScreen() {
 
       console.log('Diagram captured:', uri);
 
-      // In a real app, you would convert this to PDF
-      // For now, we'll just save/share the PNG
       const fileName = `football-play-${Date.now()}.png`;
       const fileUri = `${cacheDirectory}${fileName}`;
 
@@ -143,7 +234,7 @@ export default function PlayConverterScreen() {
       } else {
         Alert.alert(
           'Success',
-          'Diagram saved! In a production app, this would be converted to PDF format.'
+          'Diagram saved successfully!'
         );
       }
     } catch (error) {
@@ -178,6 +269,7 @@ export default function PlayConverterScreen() {
     setSelectedImage(null);
     setConvertedImage(null);
     setIsConverting(false);
+    setConversionProgress('');
     console.log('Converter reset');
   };
 
@@ -215,6 +307,19 @@ export default function PlayConverterScreen() {
                   </Text>
                 </Pressable>
               </View>
+
+              <View style={styles.setupInfoBox}>
+                <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
+                <View style={styles.setupInfoContent}>
+                  <Text style={styles.setupInfoText}>
+                    <Text style={styles.setupInfoBold}>AI Setup Required:{'\n'}</Text>
+                    {supabaseConfig.isConfigured() 
+                      ? 'Supabase connected! Make sure the edge function is deployed with your OpenAI API key.'
+                      : 'To enable AI conversion, connect your Supabase project and configure the edge function. See AI_SETUP_GUIDE.md for instructions.'
+                    }
+                  </Text>
+                </View>
+              </View>
             </View>
           ) : (
             <View style={styles.previewSection}>
@@ -227,7 +332,9 @@ export default function PlayConverterScreen() {
                 <View style={styles.actionButtons}>
                   <Pressable style={styles.convertButton} onPress={convertPlay}>
                     <IconSymbol name="wand.and.stars" size={24} color="#ffffff" />
-                    <Text style={styles.convertButtonText}>Convert to Diagram</Text>
+                    <Text style={styles.convertButtonText}>
+                      {supabaseConfig.isConfigured() ? 'Convert with AI' : 'Try Demo Mode'}
+                    </Text>
                   </Pressable>
 
                   <Pressable style={styles.resetButton} onPress={resetConverter}>
@@ -239,9 +346,12 @@ export default function PlayConverterScreen() {
               {isConverting && (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color={colors.primary} />
-                  <Text style={styles.loadingText}>Converting your play...</Text>
+                  <Text style={styles.loadingText}>{conversionProgress}</Text>
                   <Text style={styles.loadingSubtext}>
-                    Analyzing hand-drawn elements and creating professional diagram
+                    {supabaseConfig.isConfigured() 
+                      ? 'AI is analyzing your hand-drawn play and creating a professional diagram'
+                      : 'Running in demo mode - simulating AI conversion'
+                    }
                   </Text>
                 </View>
               )}
@@ -270,14 +380,6 @@ export default function PlayConverterScreen() {
                     <Pressable style={styles.resetButton} onPress={resetConverter}>
                       <Text style={styles.resetButtonText}>Convert Another Play</Text>
                     </Pressable>
-                  </View>
-
-                  <View style={styles.infoBox}>
-                    <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
-                    <Text style={styles.infoText}>
-                      This is a demo conversion. In production, AI would analyze your drawing 
-                      and create a professional football play diagram with proper symbols and routes.
-                    </Text>
                   </View>
                 </View>
               )}
@@ -347,6 +449,27 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colors.primary,
+  },
+  setupInfoBox: {
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginTop: 32,
+    width: '100%',
+  },
+  setupInfoContent: {
+    flex: 1,
+  },
+  setupInfoText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  setupInfoBold: {
+    fontWeight: '700',
   },
   previewSection: {
     gap: 20,
@@ -470,19 +593,5 @@ const styles = StyleSheet.create({
   },
   resultSection: {
     gap: 20,
-  },
-  infoBox: {
-    backgroundColor: colors.highlight,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
   },
 });
